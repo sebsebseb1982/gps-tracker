@@ -1,16 +1,4 @@
-// ESP32 only sketch (uses > 40kbytes RAM)
-
-// Loads a PNG image from the internet with a specified URL,
-// also loads a file from SPIFFS.
-
-// Use IDE to upload files to SPIFFS!
-
-//#define USE_ADAFRUIT_GFX // Comment out to use TFT_eSPI
-
-#define USE_LINE_BUFFER  // Enable for faster rendering
-
-#define SCREEN_WIDTH 480
-#define SCREEN_HEIGHT 320
+#define USE_LINE_BUFFER
 #define TILE_DIMENSION 256
 
 #include <TFT_eSPI.h>       // Hardware-specific library
@@ -24,6 +12,8 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 #include <HTTPClient.h>
 
 #include "support_functions.h"
+#include "screen.h"
+#include "wifi.h"
 
 //  int zoom = 14;
 int zoom = 18;
@@ -32,6 +22,7 @@ int currentYTile = 0;
 
 void setup() {
   Serial.begin(115200);
+  Wifi::setup();
   tft.begin();
   tft.setRotation(1);
   tft.fillScreen(0);
@@ -40,18 +31,11 @@ void setup() {
     Serial.println("SPIFFS Mount Failed");
     return;
   }
-
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(1000);
-  }
-  Serial.println("\n WiFi connected.\n");
 }
 
 
 void loop() {
-
+  Wifi::loop();
   uint32_t t = millis();
 
   float latitudeDegrees = 44.806120;
