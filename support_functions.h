@@ -1,6 +1,11 @@
 #include <math.h>
+#include <HTTPClient.h>
+#include <TFT_eSPI.h>
 
 #include "pngle.h"
+
+TFT_eSPI *screenGlobal;
+#define USE_LINE_BUFFER
 
 #define LINE_BUF_SIZE 64  // pixel = 524, 16 = 406, 32 = 386, 64 = 375, 128 = 368, 240 = 367, no draw = 324 (51ms v 200ms)
 int16_t px = 0, sx = 0;
@@ -11,8 +16,9 @@ uint16_t lbuf[LINE_BUF_SIZE];
  int16_t png_dx = 0, png_dy = 0;
 
 // Define corner position
-void setPngPosition(int16_t x, int16_t y)
+void setPngPosition(int16_t x, int16_t y, TFT_eSPI *screen)
 {
+  screenGlobal = screen;
   png_dx = x;
   png_dy = y;
 }
@@ -31,9 +37,9 @@ void pngle_on_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t 
   #ifdef USE_LINE_BUFFER // This must handle skipped pixels in transparent PNGs
     if ( pc >= LINE_BUF_SIZE) {
       #ifdef USE_ADAFRUIT_GFX
-        tft.drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, LINE_BUF_SIZE, 1);
+        screenGlobal->drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, LINE_BUF_SIZE, 1);
       #else
-        tft.pushImage(png_dx + sx, png_dy + sy, LINE_BUF_SIZE, 1, lbuf);
+        screenGlobal->pushImage(png_dx + sx, png_dy + sy, LINE_BUF_SIZE, 1, lbuf);
       #endif
       px = x; sx = x; sy = y; pc = 0;
     }
@@ -41,15 +47,15 @@ void pngle_on_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t 
     if ( (x == px) && (sy == y) && (pc < LINE_BUF_SIZE) ) {px++; lbuf[pc++] = color;}
     else {
       #ifdef USE_ADAFRUIT_GFX
-        tft.drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
+        screenGlobal->drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
       #else
-        tft.pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
+        screenGlobal->pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
       #endif
       px = x; sx = x; sy = y; pc = 0;
       px++; lbuf[pc++] = color;
     }
   #else
-    tft.drawPixel(x, y, color);
+    screenGlobal->drawPixel(x, y, color);
   #endif
   }
 }
@@ -72,7 +78,7 @@ void load_file(fs::FS &fs, const char *path)
   int remain = 0;
   int len;
   #if !defined(USE_ADAFRUIT_GFX) && !defined(USE_LINE_BUFFER)
-   tft.startWrite(); // Crashes Adafruit_GFX
+   screenGlobal->startWrite(); // Crashes Adafruit_GFX
   #endif
 
   while ((len = file.read(buf + remain, sizeof(buf) - remain)) > 0) {
@@ -89,15 +95,15 @@ void load_file(fs::FS &fs, const char *path)
    // Draw any remaining pixels - had no warning that image has ended...
   if (pc) {
   #ifdef USE_ADAFRUIT_GFX
-    tft.drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
+    screenGlobal->drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
   #else
-    tft.pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
+    screenGlobal->pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
   #endif
     pc = 0;
   }
 #endif
   #if !defined(USE_ADAFRUIT_GFX) && !defined(USE_LINE_BUFFER)
-    tft.endWrite();
+    screenGlobal->endWrite();
   #endif
   pngle_destroy(pngle);
   file.close();
@@ -129,7 +135,7 @@ void load_png(const char *url)
   uint32_t timeout = 0;
 
   #if !defined(USE_ADAFRUIT_GFX) && !defined(USE_LINE_BUFFER)
-    tft.startWrite(); // Crashes Adafruit_GFX
+    screenGlobal->startWrite(); // Crashes Adafruit_GFX
   #endif
   while (http.connected() && (total > 0 || total == -1)) {
     size_t size = stream->available();
@@ -149,19 +155,19 @@ void load_png(const char *url)
       total -= len;
     }
   }
-#ifdef USE_LINE_BUFFER
+  #ifdef USE_LINE_BUFFER
   // Draw any remaining pixels
   if (pc) {
   #ifdef USE_ADAFRUIT_GFX
-    tft.drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
+    screenGlobal->drawRGBBitmap(png_dx + sx, png_dy + sy, lbuf, pc, 1);
   #else
-    tft.pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
+    screenGlobal->pushImage(png_dx + sx, png_dy + sy, pc, 1, lbuf);
   #endif
     pc = 0;
   }
 #endif
   #if !defined(USE_ADAFRUIT_GFX) && !defined(USE_LINE_BUFFER)
-    tft.endWrite();
+    screenGlobal->endWrite();
   #endif
   pngle_destroy(pngle);
   http.end();
